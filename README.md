@@ -3,7 +3,7 @@ DualISO Magic Lantern Scripted Workflow.
 There are multiple tools created in the help of making our life easier.
 
 ------------------------
-DNG Unpack & Repack Tool
+# DNG Unpack & Repack Tool
 A high-performance C-based utility designed to manage large batches of files (specifically tailored for DNG or image workflows). This tool provides a unified interface to Unpack files into organized batches or Repack (flatten) them back into their parent directories.
 
 📂 Project Location
@@ -74,4 +74,67 @@ To compile this tool on Windows using GCC (MinGW):
 Bash
 
 gcc main.c -o DNG_Tool.exe
------------------------------
+
+------------------------
+# FileBlankMirroring
+
+Command Syntax
+The program expects exactly two arguments after the name:
+
+DOS
+
+FileBlankMirroring.exe <Folder_With_Real_Files> <Folder_To_Create_Mirrors>
+Usage Examples
+1. Manual Run (CMD/PowerShell): If you have a folder of large images at G:\Project\Originals and you want to create a lightweight test set in your IN folder:
+
+DOS
+
+FileBlankMirroring.exe "G:\Project\Originals" "G:\Scripting\IN"
+2. Integration with your Batch Script: You can update your "Reset" batch script (from the first message) to use this tool to automatically populate your environment:
+
+Code snippet
+
+@echo off
+cd /d "%~dp0"
+
+:: Delete old IN and create fresh one
+if exist "IN" rd /s /q "IN"
+mkdir "IN"
+
+:: Mirror real files as 1-byte placeholders for fast testing
+FileBlankMirroring.exe "G:\Original_Backup" "G:\Scripting\IN"
+
+echo Test environment is ready.
+pause
+Summary of logic
+The code uses the Win32 API (CreateFileA and WriteFile) to ensure maximum speed on Windows. By writing exactly one 0 byte and then calling SetEndOfFile, it ensures the OS allocates the minimum possible space on the disk, making it much faster than a standard copy command.
+
+------------------------
+# FileBlankMirroring
+
+The compares.c script (likely compiled as compares.exe) is a "Difference Finder" for photographers or editors. It looks for files that do not have a pair in another folder.
+
+What it does:
+Scans Two Folders: It looks inside FolderA and FolderB for specific file types (defaults are .cr2 and .dng).
+Ignores Extensions: It compares files based on their basename (e.g., IMG_001.dng and IMG_001.cr2 are considered a "match").
+Finds the "Loners": It identifies files that exist in Folder A but NOT in Folder B, and vice-versa.
+Isolates Unmatched Files: It copies every file that doesn't have a matching partner into a third folder (defaults to a folder named UNMATCHED).
+
+Example Scenario:
+Folder A: photo1.dng, photo2.dng, photo3.dng
+Folder B: photo1.cr2, photo2.cr2
+Result: photo3.dng is copied to the UNMATCHED folder because it has no partner in Folder B.
+
+1. The Basic Call
+This compares A and B and puts lonely files into a folder named UNMATCHED.
+
+DOS
+
+compares.exe "C:\Photos\Set1" "C:\Photos\Set2"
+2. Specifying an Output Folder
+This compares A and B and puts lonely files into a folder you name (e.g., MissingFiles).
+
+DOS
+
+compares.exe "C:\Photos\Set1" "C:\Photos\Set2" "C:\Photos\MissingFiles"
+
