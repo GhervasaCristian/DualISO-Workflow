@@ -1,0 +1,9 @@
+# depslib dependency file v1.0
+1767127799 source:c:\users\admin\documents\codeblocks\dng_unpack_repack\main.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<direct.h>
+	<windows.h>
+	<sys/stat.h>
+
