@@ -8,7 +8,7 @@
 #define CONFIG_FILE "config.inf"
 #define BATCH 3
 #define PATH_LEN 1024
-#define MAX_FILES 4096
+#define MAX_FILES 99999
 
 // ==========================================
 //           HELPER FUNCTIONS

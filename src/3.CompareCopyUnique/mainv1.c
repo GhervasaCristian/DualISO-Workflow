@@ -242,19 +242,34 @@ void copy_only_unique_basenames(const DynArray *A, const DynArray *B, const char
     free(Bcopy);
 }
 
-void copy_file_A_to_B(const char *A, const char *B) {
-    if (verbose) printf("[V] Copying file '%s' -> '%s'\n", A, B);
-    if (!CopyFileA(A, B, FALSE)) {
-        DWORD e = GetLastError();
-        char buf[512];
-        snprintf(buf, sizeof(buf), "Critical copy failed '%s' -> '%s' (err %lu)", A, B, e);
-        die(buf);
+int main(int argc, char **argv) {
+    if (argc < 3) {
+        printf("Usage: %s <FolderA> <FolderB> [FolderC]\n", argv[0]);
+        return 1;
     }
-    if (verbose) printf("[V] File successfully copied.\n");
-}
+    const char *folderA = argv[1];
+    const char *folderB = argv[2];
+    const char *folderC = (argc >= 4) ? argv[3] : "UNMATCHED";
 
-void copy_unique_A_to_C(const char *folderA, const char *folderB, const char *folderC) {
-    if (verbose) printf("[V] Folder-diff copy mode: A='%s' B='%s' C='%s'\n", folderA, folderB, folderC);
+    if (argc >= 5) {
+        if (stricmp_local(argv[4], "-q") == 0) verbose = 0;
+    }
+
+    if (verbose) {
+        printf("[V] A='%s'\n[V] B='%s'\n[V] C='%s'\n", folderA, folderB, folderC);
+        printf("[V] Extensions considered:");
+        for (size_t i=0;i<ext_count;i++) printf(" %s", exts[i]);
+        printf("\n");
+    }
+
+    // create target folder if needed
+    if (!CreateDirectoryA(folderC, NULL)) {
+        DWORD e = GetLastError();
+        if (e != ERROR_ALREADY_EXISTS) {
+            fprintf(stderr, "ERROR: cannot create target folder '%s' (err %lu)\n", folderC, e);
+            return 2;
+        }
+    }
 
     DynArray A, B;
     dyn_init(&A); dyn_init(&B);
@@ -262,81 +277,17 @@ void copy_unique_A_to_C(const char *folderA, const char *folderB, const char *fo
     scan_folder(folderA, &A);
     scan_folder(folderB, &B);
 
-    if (verbose) printf("[V] Candidates: A=%zu  B=%zu\n", A.size, B.size);
-
-    // Collect basenames that exist in B into a set for lookup
-    qsort(A.arr, A.size, sizeof(FileEntry), cmp_entry_basename);
-    qsort(B.arr, B.size, sizeof(FileEntry), cmp_entry_basename);
-
-    size_t ib = 0;
-    int copied = 0;
-
-    for (size_t ia = 0; ia < A.size; ++ia) {
-        const char *nameA = A.arr[ia].basename;
-
-        // Advance B pointer while B < A lexicographically
-        while (ib < B.size && stricmp_local(B.arr[ib].basename, nameA) < 0) {
-            ib++;
-        }
-
-        int existsInB = (ib < B.size && stricmp_local(B.arr[ib].basename, nameA) == 0);
-
-        if (!existsInB && !existsInB) {
-            // File is unique to A → copy into C
-            const char *src = A.arr[ia].fullpath;
-            char dest[MAX_PATH];
-
-            const char *p = strrchr(src, '\\');
-            const char *fname = p ? p+1 : src;
-            join_path(dest, sizeof(dest), folderC, fname);
-
-            if (verbose) printf("[V] Copying unique file from A: %s -> %s\n", src, dest);
-
-            if (CopyFileA(src, dest, FALSE)) {
-                copied++;
-            } else {
-                DWORD e = GetLastError();
-                fprintf(stderr, "WARN: Copy failed %s -> %s (err %lu)\n", src, dest, e);
-            }
-        }
+    if (verbose) {
+        printf("[V] Found %zu candidates in A, %zu in B\n", A.size, B.size);
     }
 
-    printf("Done. Unique files from A copied into '%s': %d\n", folderC, copied);
+    // copy unique basenames
+    int copied = 0;
+    copy_only_unique_basenames(&A, &B, folderC, &copied);
+
+    printf("Done. Files copied into '%s': %d\n", folderC, copied);
 
     dyn_free(&A);
     dyn_free(&B);
-}
-
-int main(int argc, char **argv) {
-    if (argc < 3) {
-        printf("Usage:\n  %s <fileA> <fileB>\n  %s <FolderA> <FolderB> <FolderC>\n", argv[0], argv[0]);
-        return 1;
-    }
-
-    // === 2 ARG MODE: Direct file copy A → B ===
-    if (argc == 3) {
-        copy_file_A_to_B(argv[1], argv[2]);
-        return 0;
-    }
-
-    // === 3 ARG MODE: Folder compare + copy unique A → C ===
-    if (argc >= 4) {
-        const char *folderA = argv[1];
-        const char *folderB = argv[2];
-        const char *folderC = argv[3];
-
-        if (!CreateDirectoryA(folderC, NULL)) {
-            DWORD e = GetLastError();
-            if (e != ERROR_ALREADY_EXISTS) {
-                char buf[512];
-                snprintf(buf, sizeof(buf), "Cannot create output folder '%s' (err %lu)", folderC, e);
-                die(buf);
-            }
-        }
-
-        copy_unique_A_to_C(folderA, folderB, folderC);
-        return 0;
-    }
-
     return 0;
 }
